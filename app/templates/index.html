@@ -13,6 +13,23 @@
 const e = React.createElement;
 function App() {
   const [file, setFile] = React.useState(null);
+  const [jsFile, setJsFile] = React.useState(null);
+
+  const playSequence = (sequence) => {
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    let startTime = context.currentTime;
+    sequence.forEach(pair => {
+      if (!Array.isArray(pair) || pair.length !== 2) return;
+      const [freq, dur] = pair;
+      const osc = context.createOscillator();
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      osc.connect(context.destination);
+      osc.start(startTime);
+      osc.stop(startTime + dur);
+      startTime += dur;
+    });
+  };
   const submit = (ev) => {
     ev.preventDefault();
     if (!file) return;
@@ -29,12 +46,34 @@ function App() {
         window.URL.revokeObjectURL(url);
       });
   };
+  const playUploadedJs = (ev) => {
+    ev.preventDefault();
+    if (!jsFile) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let text = reader.result.trim();
+      if (text.startsWith('export default')) {
+        text = text.replace(/^export default\s*/, '').replace(/;?\s*$/, '');
+      }
+      try {
+        const seq = JSON.parse(text);
+        playSequence(seq);
+      } catch (e) {
+        alert('Failed to parse JS file');
+      }
+    };
+    reader.readAsText(jsFile);
+  };
   return e('div', {className:'container'},
     e('h1', {className:'mb-4'}, 'Song to Procedural'),
     e('form', {onSubmit:submit},
       e('input', {type:'file', accept:'audio/*', className:'form-control mb-3', onChange: e=>setFile(e.target.files[0])}),
       e('button', {type:'submit', className:'btn btn-primary'}, 'Convert')
-    )
+    ),
+    e('hr'),
+    e('h2', {className:'mt-4'}, 'Play JS Array'),
+    e('input', {type:'file', accept:'.js', className:'form-control mb-3', onChange: e=>setJsFile(e.target.files[0])}),
+    e('button', {className:'btn btn-secondary', onClick: playUploadedJs}, 'Play')
   );
 }
 ReactDOM.render(e(App), document.getElementById('root'));

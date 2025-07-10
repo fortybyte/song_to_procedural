@@ -13,8 +13,22 @@ button { padding: 10px 20px; font-size: 16px; }
 <h1>Frequency Array Player</h1>
 <p>Paste the frequency-duration array (e.g. [[440, 0.5], [660, 0.25]]) and press Play.</p>
 <textarea id="sequence" placeholder="[[440, 1], [880, 0.5]]"></textarea><br>
+<input type="file" id="fileInput" accept=".js"><br><br>
 <button onclick="playSequence()">Play</button>
 <script>
+document.getElementById('fileInput').addEventListener('change', function(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let text = reader.result.trim();
+    if (text.startsWith('export default')) {
+      text = text.replace(/^export default\s*/, '').replace(/;?\s*$/, '');
+    }
+    document.getElementById('sequence').value = text;
+  };
+  reader.readAsText(file);
+});
 function playSequence() {
   const input = document.getElementById('sequence').value;
   let sequence;
