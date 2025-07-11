@@ -3,9 +3,9 @@
 from pydub import AudioSegment
 import numpy as np
 import json
+from scipy.signal import find_peaks
 
-
-def audio_to_js_array(input_file: str, frame_ms: int = 100):
+def audio_to_js_array(input_file: str, frame_ms: int = 150):
     """Return a list of [frequency, duration] pairs for the given audio file."""
     sound = AudioSegment.from_file(input_file).set_channels(1)
     sample_rate = sound.frame_rate
@@ -19,13 +19,29 @@ def audio_to_js_array(input_file: str, frame_ms: int = 100):
         frame = samples[start : start + frame_len]
         if len(frame) == 0:
             break
+
+        # Apply FFT
         spectrum = np.abs(np.fft.rfft(frame))
         freq_bins = np.fft.rfftfreq(len(frame), d=1 / sample_rate)
-        freq = float(freq_bins[np.argmax(spectrum)])
-        if frequencies and abs(freq - frequencies[-1]) < 1.0:
+
+        # Find all peaks in the magnitude spectrum
+        peak_indices, _ = find_peaks(spectrum)
+        if len(peak_indices) == 0:
+            continue  # skip if no peaks
+
+        # Take the top 6 peaks by amplitude
+        sorted_peaks = peak_indices[np.argsort(spectrum[peak_indices])[-3:]]
+        top_freqs = freq_bins[sorted_peaks]
+
+        # Take the highest frequency among the top 6
+        highest_freq = float(np.max(top_freqs))
+
+        if frequencies and abs(highest_freq - frequencies[-1]) < 1.0:
             durations[-1] += frame_ms / 1000
         else:
-            frequencies.append(freq)
+            if highest_freq < 220:
+                highest_freq = 0.0
+            frequencies.append(highest_freq)
             durations.append(frame_ms / 1000)
 
     return [[round(f, 2), round(d, 2)] for f, d in zip(frequencies, durations)]
